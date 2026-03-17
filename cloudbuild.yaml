@@ -4,7 +4,6 @@ options:
 substitutions:
   _SERVICE: openclaw
   _REGION: us-central1
-  _IMAGE: us-central1-docker.pkg.dev/$PROJECT_ID/openclaw/openclaw:latest
 
 timeout: 3600s
 
@@ -19,7 +18,7 @@ steps:
         docker buildx build \
           --platform linux/amd64 \
           --file Dockerfile \
-          --tag "${_IMAGE}" \
+          --tag "us-central1-docker.pkg.dev/${PROJECT_ID}/openclaw/openclaw:latest" \
           --push \
           .
 
@@ -30,7 +29,7 @@ steps:
       - -ceu
       - |
         gcloud run deploy "${_SERVICE}" \
-          --image "${_IMAGE}" \
+          --image "us-central1-docker.pkg.dev/${PROJECT_ID}/openclaw/openclaw:latest" \
           --region "${_REGION}" \
           --platform managed \
           --allow-unauthenticated \
