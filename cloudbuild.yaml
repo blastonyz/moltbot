@@ -1,0 +1,39 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _SERVICE: openclaw
+  _REGION: us-central1
+  _IMAGE: us-central1-docker.pkg.dev/$PROJECT_ID/openclaw/openclaw:latest
+
+timeout: 3600s
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    id: Build and push image (Buildx)
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        docker buildx create --name cloudbuilder --use || docker buildx use cloudbuilder
+        docker buildx build \
+          --platform linux/amd64 \
+          --file Dockerfile \
+          --tag "${_IMAGE}" \
+          --push \
+          .
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: Deploy to Cloud Run
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        gcloud run deploy "${_SERVICE}" \
+          --image "${_IMAGE}" \
+          --region "${_REGION}" \
+          --platform managed \
+          --allow-unauthenticated \
+          --port 8080 \
+          --command node \
+          --args openclaw.mjs,gateway,--bind,lan,--port,8080,--allow-unconfigured
