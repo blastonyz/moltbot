@@ -73,6 +73,7 @@ steps:
           --platform managed \
           --allow-unauthenticated \
           --port 8080 \
+          --set-env-vars "NODE_ENV=production,OPENCLAW_GATEWAY_PORT=8080,OPENCLAW_GATEWAY_BIND=lan,OPENCLAW_STATE_DIR=/tmp/.openclaw,OPENCLAW_CONFIG_PATH=/tmp/.openclaw/openclaw.json,OPENCLAW_HOME=/tmp" \
           "$${SECRET_FLAGS[@]}" \
           --command node \
-          --args openclaw.mjs,gateway,--bind,lan,--port,8080,--allow-unconfigured
+          --args dist/index.js,gateway,--allow-unconfigured
