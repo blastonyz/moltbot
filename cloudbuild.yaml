@@ -13,16 +13,19 @@ timeout: 3600s
 
 steps:
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-    id: Preflight Artifact Registry
+    id: Ensure Artifact Registry repo
     entrypoint: bash
     args:
       - -ceu
       - |
         if ! gcloud artifacts repositories describe "${_AR_REPO}" --location "${_AR_LOCATION}" >/dev/null 2>&1; then
-          echo "ERROR: Artifact Registry repo '${_AR_REPO}' no existe en '${_AR_LOCATION}' para el proyecto '${PROJECT_ID}'." >&2
-          echo "Crealo con:" >&2
-          echo "gcloud artifacts repositories create ${_AR_REPO} --repository-format=docker --location=${_AR_LOCATION}" >&2
-          exit 1
+          echo "Artifact Registry repo '${_AR_REPO}' no existe en '${_AR_LOCATION}'. Creando..."
+          gcloud artifacts repositories create "${_AR_REPO}" \
+            --repository-format=docker \
+            --location="${_AR_LOCATION}" \
+            --description="OpenClaw container images"
+        else
+          echo "Artifact Registry repo '${_AR_REPO}' ya existe."
         fi
 
   - name: gcr.io/cloud-builders/docker
@@ -46,12 +49,20 @@ steps:
     args:
       - -ceu
       - |
+        SECRET_FLAGS=()
+        if gcloud secrets describe "${_GEMINI_SECRET}" >/dev/null 2>&1; then
+          SECRET_FLAGS=(--set-secrets "GEMINI_API_KEY_1=${_GEMINI_SECRET}:latest,GEMINI_API_KEY=${_GEMINI_SECRET}:latest")
+          echo "Secret '${_GEMINI_SECRET}' encontrado. Inyectando GEMINI_API_KEY_1/GEMINI_API_KEY."
+        else
+          echo "Secret '${_GEMINI_SECRET}' no existe. Deploy sin Gemini key."
+        fi
+
         gcloud run deploy "${_SERVICE}" \
           --image "${_AR_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_AR_IMAGE}:latest" \
           --region "${_REGION}" \
           --platform managed \
           --allow-unauthenticated \
           --port 8080 \
-          --set-secrets "GEMINI_API_KEY_1=${_GEMINI_SECRET}:latest,GEMINI_API_KEY=${_GEMINI_SECRET}:latest" \
+          "${SECRET_FLAGS[@]}" \
           --command node \
           --args openclaw.mjs,gateway,--bind,lan,--port,8080,--allow-unconfigured
