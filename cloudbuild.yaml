@@ -54,15 +54,15 @@ steps:
         SECRET_FLAGS=()
         PROJECT_NUMBER="$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)')"
         RUNTIME_SA="${_RUNTIME_SA}"
-        if [ -z "${RUNTIME_SA}" ]; then
-          RUNTIME_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+        if [ -z "$${RUNTIME_SA}" ]; then
+          RUNTIME_SA="$${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
         fi
 
         if gcloud secrets describe "${_GATEWAY_TOKEN_SECRET}" >/dev/null 2>&1; then
           if ! gcloud secrets add-iam-policy-binding "${_GATEWAY_TOKEN_SECRET}" \
-            --member="serviceAccount:${RUNTIME_SA}" \
+            --member="serviceAccount:$${RUNTIME_SA}" \
             --role="roles/secretmanager.secretAccessor" >/dev/null 2>&1; then
-            echo "ERROR: No se pudo otorgar roles/secretmanager.secretAccessor sobre '${_GATEWAY_TOKEN_SECRET}' al service account '${RUNTIME_SA}'." >&2
+            echo "ERROR: No se pudo otorgar roles/secretmanager.secretAccessor sobre '${_GATEWAY_TOKEN_SECRET}' al service account '$${RUNTIME_SA}'." >&2
             exit 1
           fi
           SECRET_FLAGS+=(--set-secrets "OPENCLAW_GATEWAY_TOKEN=${_GATEWAY_TOKEN_SECRET}:latest")
@@ -74,15 +74,15 @@ steps:
 
         if gcloud secrets describe "${_GEMINI_SECRET}" >/dev/null 2>&1; then
           if ! gcloud secrets add-iam-policy-binding "${_GEMINI_SECRET}" \
-            --member="serviceAccount:${RUNTIME_SA}" \
+            --member="serviceAccount:$${RUNTIME_SA}" \
             --role="roles/secretmanager.secretAccessor" >/dev/null 2>&1; then
-            echo "ERROR: No se pudo otorgar roles/secretmanager.secretAccessor sobre '${_GEMINI_SECRET}' al service account '${RUNTIME_SA}'." >&2
+            echo "ERROR: No se pudo otorgar roles/secretmanager.secretAccessor sobre '${_GEMINI_SECRET}' al service account '$${RUNTIME_SA}'." >&2
             echo "Otorga ese rol en Secret Manager (IAM del secreto) o define _RUNTIME_SA con el SA correcto." >&2
             exit 1
           fi
 
           SECRET_FLAGS+=(--set-secrets "GEMINI_API_KEY_1=${_GEMINI_SECRET}:latest,GEMINI_API_KEY=${_GEMINI_SECRET}:latest")
-          echo "Secret '${_GEMINI_SECRET}' encontrado. Inyectando GEMINI_API_KEY_1/GEMINI_API_KEY con SA '${RUNTIME_SA}'."
+          echo "Secret '${_GEMINI_SECRET}' encontrado. Inyectando GEMINI_API_KEY_1/GEMINI_API_KEY con SA '$${RUNTIME_SA}'."
         else
           echo "Secret '${_GEMINI_SECRET}' no existe. Deploy sin Gemini key."
         fi
@@ -93,6 +93,6 @@ steps:
           --platform managed \
           --allow-unauthenticated \
           --port 8080 \
-          "${SECRET_FLAGS[@]}" \
+          "$${SECRET_FLAGS[@]}" \
           --command node \
           --args openclaw.mjs,gateway,--bind,lan,--port,8080,--allow-unconfigured
