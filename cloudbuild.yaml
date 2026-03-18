@@ -4,10 +4,27 @@ options:
 substitutions:
   _SERVICE: openclaw
   _REGION: us-central1
+  _AR_LOCATION: us-central1
+  _AR_REPO: openclaw
+  _AR_IMAGE: openclaw
+  _GEMINI_SECRET: GEMINI_API_KEY_1
 
 timeout: 3600s
 
 steps:
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: Preflight Artifact Registry
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        if ! gcloud artifacts repositories describe "${_AR_REPO}" --location "${_AR_LOCATION}" >/dev/null 2>&1; then
+          echo "ERROR: Artifact Registry repo '${_AR_REPO}' no existe en '${_AR_LOCATION}' para el proyecto '${PROJECT_ID}'." >&2
+          echo "Crealo con:" >&2
+          echo "gcloud artifacts repositories create ${_AR_REPO} --repository-format=docker --location=${_AR_LOCATION}" >&2
+          exit 1
+        fi
+
   - name: gcr.io/cloud-builders/docker
     id: Build and push image (Buildx)
     entrypoint: bash
@@ -16,9 +33,10 @@ steps:
       - |
         docker buildx create --name cloudbuilder --use || docker buildx use cloudbuilder
         docker buildx build \
+          --progress=plain \
           --platform linux/amd64 \
           --file Dockerfile \
-          --tag "us-central1-docker.pkg.dev/${PROJECT_ID}/openclaw/openclaw:latest" \
+          --tag "${_AR_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_AR_IMAGE}:latest" \
           --push \
           .
 
@@ -29,10 +47,11 @@ steps:
       - -ceu
       - |
         gcloud run deploy "${_SERVICE}" \
-          --image "us-central1-docker.pkg.dev/${PROJECT_ID}/openclaw/openclaw:latest" \
+          --image "${_AR_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_AR_IMAGE}:latest" \
           --region "${_REGION}" \
           --platform managed \
           --allow-unauthenticated \
           --port 8080 \
+          --set-secrets "GEMINI_API_KEY_1=${_GEMINI_SECRET}:latest,GEMINI_API_KEY=${_GEMINI_SECRET}:latest" \
           --command node \
           --args openclaw.mjs,gateway,--bind,lan,--port,8080,--allow-unconfigured
